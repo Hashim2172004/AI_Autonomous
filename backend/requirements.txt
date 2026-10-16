@@ -1,0 +1,11 @@
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.4
+pydantic[email]==2.14.1
+pydantic-settings==2.15.0
+python-multipart==0.0.32
+pyjwt==2.15.1
+numpy==2.5.4
+scikit-learn==1.9.1
+joblib==1.6.0
+anthropic==1.13.0

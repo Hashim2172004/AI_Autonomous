@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: scenario-generator-api
+    runtime: python
+    plan: starter            # persistent disks need a paid plan
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    disk:
+      name: data
+      mountPath: /opt/render/project/src/backend/data   # SQLite db, trained models, secret key
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.14
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false          # set to the static site URL, e.g. https://scenario-generator.onrender.com
+      - key: ANTHROPIC_API_KEY
+        sync: false          # optional
+
+  - type: web
+    name: scenario-generator
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite        # SPA routing
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false          # e.g. https://scenario-generator-api.onrender.com/api/v1

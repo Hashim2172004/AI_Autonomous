@@ -243,7 +243,7 @@ def run_simulation(
 def create_prediction(db: Session, scenario: Scenario) -> Prediction:
     record = ml.ensure_model(db)
     params = normalise_parameters(scenario.parameters)
-    result = ml.predict(record, params)
+    result = ml.predict(db, record, params)
 
     simulation = latest_simulation(db, scenario.id, completed_only=True)
     simulated: dict[str, float] | None = None

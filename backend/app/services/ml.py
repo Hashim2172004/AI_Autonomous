@@ -6,6 +6,7 @@ outcomes. It is *not* trained on real historical data and is labelled as such in
 
 from __future__ import annotations
 
+import io
 import threading
 from pathlib import Path
 from typing import Any
@@ -15,11 +16,11 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import KFold, train_test_split
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..config import DATA_DIR
-from ..models import MlModel
+from ..models import MlModel, MlModelBlob
 from .simulator import DEFAULT_ASSUMPTIONS, PARAMETER_LIMITS, fast_outcomes, normalise_parameters
 
 FEATURES = list(PARAMETER_LIMITS)
@@ -39,6 +40,8 @@ N_SAMPLES = 500
 MODEL_DIR = DATA_DIR / "models"
 
 _train_lock = threading.Lock()
+# Loaded forests by model id, so predictions do not re-read the model every time.
+_loaded: dict[int, RandomForestRegressor] = {}
 
 
 def is_available() -> tuple[bool, str | None]:
@@ -125,11 +128,18 @@ def train(db: Session, assumptions: dict[str, Any] | None = None, seed: int = 7)
         )
         db.add(record)
         db.flush()
+        buffer = io.BytesIO()
+        joblib.dump(forest, buffer, compress=3)
+        # Only the newest model is used, so older copies are dropped to keep the database small.
+        db.execute(delete(MlModelBlob))
+        db.add(MlModelBlob(model_id=record.id, data=buffer.getvalue()))
         path = MODEL_DIR / f"model_{record.id}.joblib"
-        joblib.dump(forest, path)
+        path.write_bytes(buffer.getvalue())
         record.file_path = str(path)
         db.commit()
         db.refresh(record)
+        _loaded.clear()
+        _loaded[record.id] = forest
         return record
 
 
@@ -137,11 +147,38 @@ def latest_model(db: Session) -> MlModel | None:
     return db.scalars(select(MlModel).order_by(MlModel.id.desc()).limit(1)).first()
 
 
+def _has_blob(db: Session, model_id: int) -> bool:
+    return db.scalar(select(MlModelBlob.model_id).where(MlModelBlob.model_id == model_id)) is not None
+
+
 def ensure_model(db: Session) -> MlModel:
     record = latest_model(db)
-    if record and Path(record.file_path).exists():
+    if record and (record.id in _loaded or Path(record.file_path).exists() or _has_blob(db, record.id)):
         return record
     return train(db)
+
+
+def _load_forest(db: Session, record: MlModel) -> RandomForestRegressor:
+    """Memory first, then this instance's file cache, then the copy in the database."""
+    forest = _loaded.get(record.id)
+    if forest is not None:
+        return forest
+    path = Path(record.file_path)
+    if path.exists():
+        forest = joblib.load(path)
+    else:
+        data = db.scalar(select(MlModelBlob.data).where(MlModelBlob.model_id == record.id))
+        if data is None:
+            raise RuntimeError("The trained model is missing; retrain it.")
+        forest = joblib.load(io.BytesIO(data))
+        try:
+            MODEL_DIR.mkdir(parents=True, exist_ok=True)
+            (MODEL_DIR / f"model_{record.id}.joblib").write_bytes(data)
+        except OSError:
+            pass  # the cache is optional
+    _loaded.clear()
+    _loaded[record.id] = forest
+    return forest
 
 
 def model_to_dict(record: MlModel | None) -> dict | None:
@@ -162,8 +199,8 @@ def model_to_dict(record: MlModel | None) -> dict | None:
     }
 
 
-def predict(record: MlModel, params: dict[str, float]) -> dict[str, Any]:
-    forest: RandomForestRegressor = joblib.load(record.file_path)
+def predict(db: Session, record: MlModel, params: dict[str, float]) -> dict[str, Any]:
+    forest = _load_forest(db, record)
     vector = np.array([[float(params[name]) for name in FEATURES]])
     per_tree = np.array([tree.predict(vector)[0] for tree in forest.estimators_])  # (trees, targets)
     mean = per_tree.mean(axis=0)

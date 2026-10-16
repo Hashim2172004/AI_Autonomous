@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -177,6 +177,15 @@ class MlModel(Base):
     meta: Mapped[dict] = mapped_column(JSON, default=dict)
     file_path: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class MlModelBlob(Base):
+    """The trained model itself, so every server instance can load it (local files are per instance on Vercel)."""
+
+    __tablename__ = "ml_model_blobs"
+
+    model_id: Mapped[int] = mapped_column(ForeignKey("ml_models.id", ondelete="CASCADE"), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
 
 
 class KnowledgeDocument(Base):

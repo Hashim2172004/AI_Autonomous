@@ -13,6 +13,7 @@ from ..services.scenarios import (
     create_prediction,
     create_what_if,
     effective_assumptions,
+    latest_simulation,
     prediction_to_dict,
     run_simulation,
     save_generated,
@@ -173,11 +174,13 @@ def get_scenario(scenario_id: int, db: DbSession, user: CurrentUser):
 def update_scenario(scenario_id: int, payload: ScenarioUpdate, db: DbSession, user: CurrentUser):
     scenario = get_owned_scenario(db, user.id, scenario_id)
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    params_changed = False
     if "parameters" in changes:
         try:
             params = normalise_parameters(changes.pop("parameters"), base=scenario.parameters)
         except ValidationError as error:
             raise_validation(error, "parameters")
+        params_changed = params != normalise_parameters(scenario.parameters)
         scenario.parameters = params
         scenario.severity = severity_for(params)[0]
         details = dict(scenario.details or {})
@@ -186,6 +189,9 @@ def update_scenario(scenario_id: int, payload: ScenarioUpdate, db: DbSession, us
     for key, value in changes.items():
         setattr(scenario, key, value)
     db.commit()
+    # Results simulated with the old shock would no longer match the scenario, so refresh them.
+    if params_changed and latest_simulation(db, scenario.id) is not None:
+        run_simulation(db, scenario, user.id)
     return scenario_to_detail(db, scenario)
 
 

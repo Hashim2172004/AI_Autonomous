@@ -193,7 +193,7 @@ export default function Knowledge() {
                       <p className="truncate text-sm font-medium text-slate-900">{document.title}</p>
                       <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{document.preview}</p>
                       <p className="mt-1 text-xs text-slate-400">
-                        {document.chunk_count} passages · {document.characters.toLocaleString()} characters ·{' '}
+                        {document.chunk_count} passage{document.chunk_count === 1 ? '' : 's'} · {document.characters.toLocaleString()} characters ·{' '}
                         {document.system_id ? systemName(document.system_id) || 'one system' : 'all systems'} · {formatDate(document.created_at)}
                       </p>
                     </div>

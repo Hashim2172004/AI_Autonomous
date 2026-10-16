@@ -576,6 +576,12 @@ COMPATIBLE = {
 }
 
 
+def _compound_change(first_pct: float, second_pct: float) -> float:
+    """Apply two percentage shocks one after the other, so cuts compound instead of passing -100%."""
+    combined = ((1 + first_pct / 100) * (1 + second_pct / 100) - 1) * 100
+    return round(max(-100.0, min(300.0, combined)), 1)
+
+
 def expand_combinations(scenarios: list[dict[str, Any]], max_new: int) -> list[dict[str, Any]]:
     """Create compound scenarios from pairs of compatible base scenarios.
 
@@ -606,13 +612,12 @@ def expand_combinations(scenarios: list[dict[str, Any]], max_new: int) -> list[d
         a, b = scenarios[i], scenarios[j]
         pa, pb = a["parameters"], b["parameters"]
         params = {
-            "demand_change_pct": max(-100, min(300, pa["demand_change_pct"] + pb["demand_change_pct"])),
-            "capacity_change_pct": max(-100, min(300, pa["capacity_change_pct"] + pb["capacity_change_pct"])),
-            "cost_change_pct": max(-100, min(300, pa["cost_change_pct"] + pb["cost_change_pct"])),
+            **{key: _compound_change(pa[key], pb[key]) for key in ("demand_change_pct", "capacity_change_pct", "cost_change_pct")},
             "duration_days": int(max(pa["duration_days"], pb["duration_days"])),
             "recovery_days": int(max(pa["recovery_days"], pb["recovery_days"])),
-            # Events that hit together are more likely than independent chance suggests.
-            "probability": round(min(0.6, pa["probability"] * pb["probability"] * 2.5), 2),
+            # Correlated events hit together more often than independent chance suggests,
+            # but never more often than the less likely of the two.
+            "probability": round(min(pa["probability"], pb["probability"], pa["probability"] * pb["probability"] * 2.5), 2),
             "volatility": round(min(1.0, max(pa["volatility"], pb["volatility"]) + 0.1), 2),
         }
         severity, _score = severity_for(params)
@@ -646,8 +651,9 @@ def expand_combinations(scenarios: list[dict[str, Any]], max_new: int) -> list[d
                 ),
             },
             "assumptions": [
-                "Shock sizes of the two events are added together; this is a simplification.",
-                "Probability is the product of the two likelihoods, raised because the events are correlated.",
+                "Shock sizes of the two events compound (e.g. two 50% capacity cuts leave 25%); this is a simplification.",
+                "Probability is the product of the two likelihoods, raised because the events are correlated, "
+                "and capped at the likelihood of the rarer event.",
             ],
             "confidence": round(max(0.35, min(a["confidence"], b["confidence"]) - 0.1), 2),
             "components": [i, j],

@@ -22,6 +22,15 @@ import { CATEGORY_LABELS, formatDateTime, formatScore, titleCase } from '../util
 const POLL_MS = 1500
 const ACTIVE = new Set(['queued', 'running'])
 
+/** Wall-clock time from start to finish, e.g. "1.4s" or "2m 05s"; "—" until the run ends. */
+function runTime(run) {
+  const ms = Date.parse(run.completed_at) - Date.parse(run.created_at)
+  if (!Number.isFinite(ms) || ms < 0) return '—'
+  const seconds = ms / 1000
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  return `${Math.floor(seconds / 60)}m ${String(Math.round(seconds % 60)).padStart(2, '0')}s`
+}
+
 function StepIcon({ status }) {
   const base = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full'
   if (status === 'running') return <span className={`${base} bg-indigo-100 text-indigo-600`}><Spinner className="h-4 w-4" /></span>
@@ -245,7 +254,7 @@ export default function GenerationRun() {
                 <Stat label="Risk reports" value={stats.risk_reports} />
                 <Stat label="LLM requests" value={stats.limits ? `${stats.limits.llm_calls_used}/${stats.limits.llm_calls_limit}` : stats.llm_calls} />
                 <Stat label="Tokens (in/out)" value={`${stats.input_tokens ?? 0}/${stats.output_tokens ?? 0}`} />
-                <Stat label="Run time" value={stats.limits ? `${stats.limits.seconds_used}s` : '—'} />
+                <Stat label="Run time" value={runTime(run)} />
               </div>
               {stats.limits_reached?.length > 0 && (
                 <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">

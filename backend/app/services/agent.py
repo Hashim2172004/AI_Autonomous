@@ -157,10 +157,18 @@ def build_report(
     compounds = [s for s in rated if (s.details or {}).get("kind") == "compound"]
     if compounds:
         top_compound = max(compounds, key=lambda s: s.risk_score or 0)
-        key_findings.append(
-            f"Combined events matter: “{top_compound.title}” scores {top_compound.risk_score:.0f}/100, "
-            f"{'higher' if top_compound.risk_score >= (ranked[0].risk_score or 0) else 'close to'} any single event."
-        )
+        compound_score = top_compound.risk_score or 0
+        single_score = max(((s.risk_score or 0) for s in rated if s not in compounds), default=0)
+        if compound_score > single_score:
+            comparison = f"higher than any single event (top single event: {single_score:.0f}/100)"
+        elif compound_score >= single_score - 5:
+            comparison = f"close to the riskiest single event ({single_score:.0f}/100)"
+        else:
+            comparison = None
+        if comparison:
+            key_findings.append(
+                f"Combined events matter: “{top_compound.title}” scores {compound_score:.0f}/100, {comparison}."
+            )
 
     top_risks = []
     for scenario in top:

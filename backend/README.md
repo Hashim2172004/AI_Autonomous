@@ -12,7 +12,7 @@ python -m venv .venv
 
 - API: http://localhost:8000/api/v1 (interactive docs at `/docs`)
 - Health: http://localhost:8000/health
-- Data: `data/app.db` (SQLite), `data/models/` (trained ML models), `data/.secret_key` (JWT signing key)
+- Data: `data/app.db` (SQLite, including the trained ML model), `data/models/` (model file cache), `data/.secret_key` (JWT signing key)
 
 ## What is inside
 
@@ -37,6 +37,6 @@ python -m venv .venv
 ## Deploy on Vercel
 
 Set the project root to `backend/`; `vercel.json` routes every request to `api/index.py`. Set `DATABASE_URL` to a
-Postgres URL and `CORS_ORIGINS` to the frontend's address. Writable files (trained ML models) live in `/tmp`, which
-is per instance and temporary, so a trained model may need retraining after a cold start.
+Postgres URL and `CORS_ORIGINS` to the frontend's address. The trained ML model is stored in the database, so every
+instance can use it; `/tmp` only holds a per-instance cache of it.
 - Every resource is scoped to the signed-in user.

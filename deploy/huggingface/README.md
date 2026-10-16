@@ -3,8 +3,9 @@ title: Scenario Generator API
 emoji: 📈
 colorFrom: indigo
 colorTo: blue
-sdk: docker
-app_port: 7860
+sdk: gradio
+python_version: "3.12"
+app_file: app.py
 pinned: false
 ---
 

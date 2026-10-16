@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..database import SessionLocal
 from ..models import GenerationRun, Scenario, ScenarioRelationship, System, iso, utcnow
 from . import knowledge, llm, ml
@@ -442,6 +443,9 @@ def _execute(db: Session, run: GenerationRun, started: float) -> None:
 
 
 def start_run(run_id: int) -> None:
+    if get_settings().inline_runs:
+        execute_run(run_id)
+        return
     threading.Thread(target=execute_run, args=(run_id,), name=f"generation-run-{run_id}", daemon=True).start()
 
 

@@ -77,6 +77,7 @@ def start_run(payload: GenerateRequest, db: DbSession, user: CurrentUser):
     db.refresh(run)
     run.system = system
     agent.start_run(run.id)
+    db.refresh(run)  # an inline run (serverless) has already finished in its own session
     return run_to_dict(run)
 
 

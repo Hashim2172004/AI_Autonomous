@@ -16,11 +16,16 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 log = logging.getLogger("app")
 
 
+# At import rather than in the lifespan hook, which serverless runtimes may not call.
+init_db()
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    init_db()
-    with SessionLocal() as db:
-        fail_interrupted_runs(db)
+    # With inline runs, several instances share the database and another one may be mid-run.
+    if not settings.inline_runs:
+        with SessionLocal() as db:
+            fail_interrupted_runs(db)
     yield
 
 

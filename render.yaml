@@ -2,15 +2,14 @@ services:
   - type: web
     name: scenario-generator-api
     runtime: python
-    plan: starter            # persistent disks need a paid plan
+    # Free plan: no persistent disk, so the SQLite db and trained models reset on every
+    # restart/redeploy. For lasting data use `plan: starter` and add a disk mounted at
+    # /opt/render/project/src/backend/data.
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
-    disk:
-      name: data
-      mountPath: /opt/render/project/src/backend/data   # SQLite db, trained models, secret key
-      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.14

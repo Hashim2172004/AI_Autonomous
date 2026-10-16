@@ -7,10 +7,10 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-# Serverless hosts (Vercel) only allow writes under /tmp, so the data folder can be moved.
-DATA_DIR = Path(os.environ.get("DATA_DIR") or BACKEND_DIR / "data")
 # On Vercel threads stop once the response is sent, so generation runs execute inside the request.
 ON_VERCEL = bool(os.environ.get("VERCEL"))
+# Serverless hosts (Vercel) only allow writes under /tmp, so the data folder defaults there and can be moved.
+DATA_DIR = Path(os.environ.get("DATA_DIR") or ("/tmp/scenario-data" if ON_VERCEL else BACKEND_DIR / "data"))
 
 
 class Settings(BaseSettings):

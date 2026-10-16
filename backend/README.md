@@ -1,6 +1,6 @@
 # Scenario Generator API
 
-FastAPI + SQLite backend for the `frontend/` app.
+FastAPI backend for the `frontend/` app. SQLite locally, Postgres (`DATABASE_URL`) when hosted.
 
 ## Run
 
@@ -28,7 +28,15 @@ python -m venv .venv
 
 ## Notes
 
-- No external LLM is used. `GET /generation/config` reports `llm_configured: false`; the "AI agent" runs the
-  deterministic pipeline above and the report is marked as a template summary.
+- Claude is optional: set `ANTHROPIC_API_KEY` to let the agent draft scenarios and write the report. Without it
+  `GET /generation/config` reports `llm_configured: false` and the agent runs the deterministic pipeline above,
+  marking the report as a template summary.
 - Generation runs execute in a thread inside the API process and are marked failed if the server restarts mid-run.
+  On Vercel (`VERCEL` is set) they run inside the request instead, since threads stop once the response is sent.
+
+## Deploy on Vercel
+
+Set the project root to `backend/`; `vercel.json` routes every request to `api/index.py`. Set `DATABASE_URL` to a
+Postgres URL and `CORS_ORIGINS` to the frontend's address. Writable files (trained ML models) live in `/tmp`, which
+is per instance and temporary, so a trained model may need retraining after a cold start.
 - Every resource is scoped to the signed-in user.

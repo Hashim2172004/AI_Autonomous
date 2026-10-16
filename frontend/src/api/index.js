@@ -24,10 +24,10 @@ export const scenariosApi = {
   list: (params, config) => data(client.get('/scenarios', { params: clean(params), ...config })),
   get: (id, config) => data(client.get(`/scenarios/${id}`, config)),
   create: (payload) => data(client.post('/scenarios', payload)),
-  generate: (payload) => data(client.post('/scenarios/generate', payload)),
+  generate: (payload) => data(client.post('/scenarios/generate', payload, { timeout: 120000 })),
   update: (id, payload) => data(client.patch(`/scenarios/${id}`, payload)),
   remove: (id) => data(client.delete(`/scenarios/${id}`)),
-  simulate: (id, payload) => data(client.post(`/scenarios/${id}/simulate`, payload || null)),
+  simulate: (id, payload) => data(client.post(`/scenarios/${id}/simulate`, payload || null, { timeout: 120000 })),
   simulations: (id, config) => data(client.get(`/scenarios/${id}/simulations`, config)),
   predict: (id) => data(client.post(`/scenarios/${id}/predict`, null, { timeout: 120000 })),
   whatIfs: (id, config) => data(client.get(`/scenarios/${id}/what-if`, config)),
@@ -47,7 +47,8 @@ export const simulationsApi = {
 
 export const generationApi = {
   config: () => data(client.get('/generation/config')),
-  start: (payload) => data(client.post('/generation/runs', payload)),
+  // With inline runs (Vercel) the whole pipeline, including LLM calls, runs inside this request.
+  start: (payload) => data(client.post('/generation/runs', payload, { timeout: 300000 })),
   list: (params, config) => data(client.get('/generation/runs', { params: clean(params), ...config })),
   get: (id, config) => data(client.get(`/generation/runs/${id}`, config)),
   scenarios: (id, config) => data(client.get(`/generation/runs/${id}/scenarios`, config)),
